@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>GrindBill — Fast Quotes & Invoices</title>
+<meta name="description" content="Fast Quotes & Invoices. Zero Bloat. Built for solo contractors, local shops, food trucks, and freelancers."/>
+<meta name="theme-color" content="#0f172a"/>
+<link rel="manifest" href="./manifest.webmanifest"/>
+<link rel="icon" type="image/png" href="./icons/favicon.png"/>
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="GrindBill"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{sans:['Inter','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
+<style>
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:#0f172a}::-webkit-scrollbar-thumb{background:#334155;border-radius:9999px}
+.paper-sheet{background:#fff;color:#0f172a;box-shadow:0 20px 25px -5px rgba(0,0,0,.5);min-height:760px}
+.step{display:none}.step.active{display:block}
+@media print{body{background:#fff!important}.no-print{display:none!important}#preview-pane{display:block!important;position:static!important;width:100%!important;max-width:100%!important;height:auto!important;overflow:visible!important;padding:0!important}.paper-sheet{box-shadow:none!important;border:none!important;width:100%!important;max-width:100%!important;min-height:auto!important}}
+</style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans antialiased min-h-screen flex flex-col">
+<div id="toast-container" class="no-print fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+<!-- SPLASH -->
+<div id="splash" class="fixed inset-0 z-[60] bg-slate-950 flex flex-col items-center justify-center px-6 text-center">
+  <img src="./icons/logo-transparent.png" alt="GrindBill logo" class="w-28 h-28 object-contain mb-4"/>
+  <h1 class="text-4xl font-extrabold tracking-tight">GrindBill</h1>
+  <span class="mt-2 px-3 py-1 text-xs font-semibold uppercase tracking-wider rounded-full bg-slate-800 text-teal-400 border border-teal-500/30">by GrindBrowser</span>
+  <p class="mt-4 text-slate-400 max-w-sm">Fast Quotes &amp; Invoices. Zero Bloat.<br/>Built for solo contractors, local shops, food trucks, and freelancers.</p>
+  <div class="mt-8 flex flex-col gap-3 w-full max-w-xs">
+    <button onclick="enterApp(false)" class="w-full py-3 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold">Start a Quote / Invoice</button>
+    <button id="btn-continue-draft" onclick="enterApp(true)" class="hidden w-full py-3 rounded-xl bg-slate-800 border border-slate-700 font-semibold">Continue Last Draft</button>
+    <button id="btn-install-splash" onclick="promptInstall()" class="hidden w-full py-3 rounded-xl bg-yellow-400 text-slate-950 font-bold">Install App</button>
+  </div>
+  <label class="mt-6 flex items-center gap-2 text-xs text-slate-400"><input id="skip-splash" type="checkbox" class="accent-teal-500"/> Skip splash next time</label>
+  <p id="pwa-status" class="mt-4 text-[11px] text-slate-500">Checking install status…</p>
+  <p class="mt-2 text-[11px] text-slate-500">Works offline • Installable • Autosaves</p>
+</div>
+
+<!-- HEADER -->
+<header class="no-print sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 px-4 py-3">
+  <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+    <button onclick="showSplash()" class="flex items-center gap-3">
+      <img src="./icons/logo-transparent.png" class="w-10 h-10 object-contain rounded-xl bg-slate-900 border border-slate-700 p-1" alt="GrindBill"/>
+      <span class="text-left"><span class="block text-lg font-extrabold">GrindBill</span><span class="block text-xs text-slate-400">Fast Quotes &amp; Invoices</span></span>
+    </button>
+    <div class="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800">
+      <button id="btn-mode-quote" onclick="setDocMode('QUOTE')" class="px-3.5 py-1.5 rounded-lg text-sm font-bold bg-yellow-400 text-slate-950">QUOTE / ESTIMATE</button>
+      <button id="btn-mode-invoice" onclick="setDocMode('INVOICE')" class="px-3.5 py-1.5 rounded-lg text-sm font-bold text-slate-400">INVOICE</button>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="online-dot" class="text-xs px-2 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800">● Online</span>
+      <span id="saved-label" class="hidden md:inline text-xs text-slate-400">Last saved • —</span>
+      <button id="btn-install" onclick="promptInstall()" class="hidden px-3 py-2 rounded-xl bg-yellow-400 text-slate-950 text-sm font-bold">Install App</button>
+      <button onclick="copySmsSummary()" class="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-sm font-semibold">Copy SMS Summary</button>
+      <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-teal-500 text-slate-950 text-sm font-bold">Export / Print PDF</button>
+      <button onclick="startNewDocument()" class="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-sm font-semibold">+ New</button>
+    </div>
+  </div>
+  <div class="max-w-7xl mx-auto mt-3">
+    <div class="flex gap-2 overflow-x-auto pb-1" id="stepper"></div>
+    <div class="h-1.5 bg-slate-800 rounded-full mt-2 overflow-hidden"><div id="progress-bar" class="h-full bg-teal-500 transition-all" style="width:16%"></div></div>
+    <div class="flex justify-between mt-1"><span id="step-label" class="text-xs text-slate-400">Step 1 of 6</span><button onclick="toggleAllSettings()" class="text-xs font-bold text-teal-400">All Settings ▾</button></div>
+  </div>
+</header>
+
+<!-- ALL SETTINGS DRAWER -->
+<div id="all-settings" class="no-print hidden max-w-7xl mx-auto w-full px-4 sm:px-6 mt-4">
+  <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 text-sm text-slate-300">
+    <b class="text-white">All Settings</b> — jump to any step: <span class="text-teal-400">Click a step above</span> • App: <b>GrindBill v2</b> • Manifest: <code>./manifest.webmanifest</code> • SW: <code>./sw.js</code> • <button onclick="localStorage.removeItem('grindbill_draft_v1');showToast('Draft cleared')" class="text-rose-300 underline">Clear Draft</button> • <button onclick="location.reload()" class="text-teal-300 underline">Reload / Check for updates</button>
+  </div>
+</div>
+
+<main class="flex-1 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 sm:p-6">
+  <section class="no-print lg:col-span-6 flex flex-col gap-5">
+    <!-- STEP 1 -->
+    <div class="step active bg-slate-800 border border-slate-700 rounded-2xl p-5" data-step="1">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-teal-400 mb-3">1 • Document Details</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div><label class="text-xs text-slate-400">Doc Number</label><div class="flex"><input id="doc-number" value="GB-1001" oninput="updateStateAndRender()" class="w-full bg-slate-900 border border-slate-700 rounded-l-xl px-3 py-2 text-sm font-mono"/><button onclick="incrementDocNumber()" class="px-2 bg-slate-700 rounded-r-xl text-teal-300 font-bold">+1</button></div></div>
+        <div><label class="text-xs text-slate-400">Issue Date</label><input id="doc-date" type="date" oninput="updateStateAndRender()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm"/></div>
+        <div><label id="label-due-date" class="text-xs text-slate-400">Valid Until</label><input id="doc-due-date" type="date" oninput="updateStateAndRender()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm"/></div>
+      </div>
+      <div class="mt-4 flex items-center gap-2"><span class="text-xs text-slate-400">Accent:</span>
+        <button onclick="setAccentColor('#0f172a')" class="w-5 h-5 rounded-full bg-slate-900 border border-slate-500"></button>
+        <button onclick="setAccentColor('#0d9488')" class="w-5 h-5 rounded-full bg-teal-600"></button>
+        <button onclick="setAccentColor('#2563eb')" class="w-5 h-5 rounded-full bg-blue-600"></button>
+        <button onclick="setAccentColor('#d97706')" class="w-5 h-5 rounded-full bg-amber-600"></button>
+        <button onclick="setAccentColor('#16a34a')" class="w-5 h-5 rounded-full bg-green-600"></button>
+      </div>
+      <div class="mt-5 flex justify-end"><button onclick="goStep(2)" class="px-4 py-2 rounded-xl bg-teal-500 text-slate-950 font-bold">Save &amp; Continue →</button></div>
+    </div>
+    <!-- STEP 2 -->
+    <div class="step bg-slate-800 border border-slate-700 rounded-2xl p-5" data-step="2">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-teal-400 mb-3">2 • Your Business (From) — Auto-Saved</h2>
+      <div class="flex items-center gap-2 bg-slate-900 p-2 rounded-xl border border-slate-700 mb-3"><label class="flex-1 cursor-pointer text-xs"><span id="logo-status-text">Upload Business Logo</span><input id="biz-logo-input" type="file" accept="image/*" onchange="handleLogoUpload(event)" class="hidden"/></label><button id="btn-remove-logo" onclick="removeLogo()" class="hidden text-rose-400 text-xs">Remove</button></div>
+      <div class="flex flex-col gap-2">
+        <input id="biz-name" placeholder="Your Business / Shop Name" oninput="saveBusinessProfile()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm"/>
+        <input id="biz-contact" placeholder="Your Name / Title (Optional)" oninput="saveBusinessProfile()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm"/>
+        <div class="grid grid-cols-2 gap-2"><input id="biz-phone" placeholder="Phone" oninput="saveBusinessProfile()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm"/><input id="biz-email" placeholder="Email" oninput="saveBusinessProfile()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm"/></div>
+        <input id="biz-address" placeholder="City, State or Street Address" oninput="saveBusinessProfile()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm"/>
+      </div>
+      <div class="mt-5 flex justify-between"><button onclick="goStep(1)" class="px-4 py-2 rounded-xl bg-slate-700 font-bold">← Back</button><button onclick="goStep(3)" class="px-4 py-2 rounded-xl bg-teal-500 text-slate-950 font-bold">Save &amp; Continue →</button></div>
+    </div>
+    <!-- STEP 3 -->
+    <div class="step bg-slate-800 border border-slate-700 rounded-2xl p-5" data-step="3">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-yellow-400 mb-3">3 • Client Info (Bill To)</h2>
+      <div class="flex flex-col gap-2">
+        <input id="client-name" placeholder="Client Full Name" oninput="updateStateAndRender()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm"/>
+        <input id="client-company" placeholder="Client Company (Optional)" oninput="updateStateAndRender()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm"/>
+        <div class="grid grid-cols-2 gap-2"><input id="client-phone" placeholder="Client Phone" oninput="updateStateAndRender()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm"/><input id="client-email" placeholder="Client Email" oninput="updateStateAndRender()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm"/></div>
+        <input id="client-address" placeholder="Job Site / Client Address" oninput="updateStateAndRender()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm"/>
+      </div>
+      <div class="mt-3"><button onclick="clearClientInfo()" class="text-xs text-slate-400 underline">Clear Client</button></div>
+      <div class="mt-5 flex justify-between"><button onclick="goStep(2)" class="px-4 py-2 rounded-xl bg-slate-700 font-bold">← Back</button><button onclick="goStep(4)" class="px-4 py-2 rounded-xl bg-teal-500 text-slate-950 font-bold">Save &amp; Continue →</button></div>
+    </div>
+    <!-- STEP 4 -->
+    <div class="step bg-slate-800 border border-slate-700 rounded-2xl p-5" data-step="4">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-teal-400 mb-3">4 • Services &amp; Line Items</h2>
+      <div class="text-xs text-slate-400 mb-1">Tap a preset to add instantly:</div><div id="presets-container" class="flex flex-wrap gap-1.5 mb-3"></div>
+      <button onclick="togglePresetForm()" class="text-xs font-semibold text-yellow-400">+ Create Saved Preset</button>
+      <div id="new-preset-box" class="hidden mt-2 p-3 rounded-xl bg-slate-900 border border-yellow-400/40 flex gap-2"><input id="preset-new-desc" placeholder="Preset name" class="flex-1 bg-slate-800 rounded-lg px-3 py-1.5 text-xs"/><input id="preset-new-rate" type="number" placeholder="Rate ($)" class="w-24 bg-slate-800 rounded-lg px-3 py-1.5 text-xs"/><button onclick="saveNewPreset()" class="px-3 py-1.5 rounded-lg bg-yellow-400 text-slate-950 text-xs font-bold">Save</button></div>
+      <div id="line-items-container" class="flex flex-col gap-2 mt-3"></div>
+      <button onclick="addLineItem('',1,0)" class="mt-3 w-full py-2.5 rounded-xl border border-dashed border-slate-600 text-xs font-bold text-teal-400">+ Add Custom Line Item</button>
+      <div class="mt-4 flex justify-between text-sm"><span>Subtotal</span><span id="calc-subtotal" class="font-mono font-semibold">$0.00</span></div>
+      <div class="mt-5 flex justify-between"><button onclick="goStep(3)" class="px-4 py-2 rounded-xl bg-slate-700 font-bold">← Back</button><button onclick="goStep(5)" class="px-4 py-2 rounded-xl bg-teal-500 text-slate-950 font-bold">Save &amp; Continue →</button></div>
+    </div>
+    <!-- STEP 5 -->
+    <div class="step bg-slate-800 border border-slate-700 rounded-2xl p-5" data-step="5">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-yellow-400 mb-3">5 • Totals &amp; How to Pay</h2>
+      <div class="grid grid-cols-2 gap-3 mb-3"><div><label class="text-xs text-slate-400">Tax Rate (%)</label><input id="tax-rate" type="number" value="0" oninput="updateStateAndRender()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 font-mono"/></div><div><label class="text-xs text-slate-400">Discount ($)</label><input id="discount-amount" type="number" value="0" oninput="updateStateAndRender()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 font-mono"/></div></div>
+      <label class="text-xs text-slate-400">Payment Drop-In</label><textarea id="payment-info" rows="2" placeholder="e.g. Venmo: @YourShop | Zelle: 555-0199" oninput="savePaymentInfo()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs mb-3"></textarea>
+      <label class="text-xs text-slate-400">Notes / Terms</label><textarea id="doc-notes" rows="2" oninput="updateStateAndRender()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs"></textarea>
+      <div class="mt-4 flex justify-between items-center border-t border-slate-700 pt-3"><span class="font-bold">Grand Total</span><span id="calc-grand-total" class="font-mono text-xl font-extrabold text-teal-400">$0.00</span></div>
+      <div class="mt-5 flex justify-between"><button onclick="goStep(4)" class="px-4 py-2 rounded-xl bg-slate-700 font-bold">← Back</button><button onclick="goStep(6)" class="px-4 py-2 rounded-xl bg-teal-500 text-slate-950 font-bold">Review Document →</button></div>
+    </div>
+    <!-- STEP 6 -->
+    <div class="step bg-slate-800 border border-slate-700 rounded-2xl p-5" data-step="6">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-teal-400 mb-3">6 • Review Before Finishing</h2>
+      <div id="checklist" class="text-sm flex flex-col gap-1 mb-4"></div>
+      <p class="text-xs text-slate-400">Your document preview is on the right (or below on mobile). Check it, go back to edit, or copy the SMS summary.</p>
+      <div class="mt-5 flex flex-wrap gap-2"><button onclick="goStep(5)" class="px-4 py-2 rounded-xl bg-slate-700 font-bold">← Back to Edit</button><button onclick="copySmsSummary()" class="px-4 py-2 rounded-xl bg-slate-700 font-bold">Copy SMS Summary</button><button onclick="startNewDocument();goStep(1)" class="px-4 py-2 rounded-xl bg-teal-500 text-slate-950 font-bold">Start New Document</button></div>
+    </div>
+  </section>
+
+  <section id="preview-pane" class="lg:col-span-6">
+    <div class="sticky top-36 lg:top-40">
+      <div class="no-print flex justify-between mb-2 px-1"><span class="text-xs font-bold uppercase text-slate-400">● Live Preview</span><span class="text-[11px] text-slate-500">Updates as you type</span></div>
+      <div id="paper-document" class="paper-sheet rounded-2xl p-6 sm:p-10 flex flex-col justify-between">
+        <div>
+          <div id="preview-header-bar" class="flex justify-between gap-4 pb-6 border-b-2 border-slate-900">
+            <div class="flex gap-3"><img id="preview-logo" class="hidden w-14 h-14 object-contain rounded-lg border border-slate-200 p-1" alt=""/><div><h2 id="preview-biz-name" class="text-2xl font-extrabold">Your Business Name</h2><p id="preview-biz-contact" class="text-xs text-slate-600"></p><p id="preview-biz-details" class="text-xs text-slate-500"></p></div></div>
+            <div class="text-right"><span id="preview-doc-badge" class="inline-block px-3 py-1 rounded-md text-xs font-extrabold uppercase bg-amber-100 text-amber-900 border border-amber-300">QUOTE / ESTIMATE</span><div id="preview-doc-number" class="font-mono font-bold mt-2">#GB-1001</div><div class="text-xs text-slate-500">Issued: <span id="preview-doc-date"></span><br/><span id="preview-due-label">Valid Until:</span> <span id="preview-doc-due-date"></span></div></div>
+          </div>
+          <div class="py-5 border-b border-slate-200"><div class="text-[10px] font-bold uppercase text-slate-400">Prepared For</div><div id="preview-client-name" class="font-bold">Client Name</div><div id="preview-client-company" class="text-xs font-semibold"></div><div id="preview-client-details" class="text-xs text-slate-500"></div></div>
+          <table class="w-full text-left"><thead><tr class="border-b text-[10px] uppercase text-slate-500"><th class="py-2">Description</th><th class="text-right">Qty</th><th class="text-right">Rate</th><th class="text-right">Amount</th></tr></thead><tbody id="preview-items-body" class="text-sm"></tbody></table>
+          <div class="flex justify-end pt-4"><div class="w-64 flex flex-col gap-1 text-sm"><div class="flex justify-between"><span>Subtotal</span><span id="preview-subtotal" class="font-mono">$0.00</span></div><div id="preview-tax-row" class="hidden flex justify-between"><span id="preview-tax-label">Tax</span><span id="preview-tax-amount" class="font-mono">$0.00</span></div><div id="preview-discount-row" class="hidden flex justify-between text-emerald-700"><span>Discount</span><span id="preview-discount-amount" class="font-mono">-$0.00</span></div><div id="preview-total-bar" class="flex justify-between border-t-2 border-slate-900 pt-2 font-extrabold"><span id="preview-total-label">Estimated Total</span><span id="preview-grand-total" class="font-mono text-lg">$0.00</span></div></div></div>
+          <div class="grid gap-3 pt-4"><div id="preview-payment-box" class="hidden bg-slate-50 border rounded-xl p-3"><div class="text-[10px] font-bold uppercase text-slate-500">How to Pay</div><div id="preview-payment-text" class="text-xs whitespace-pre-line"></div></div><div id="preview-notes-box" class="bg-slate-50 border rounded-xl p-3"><div class="text-[10px] font-bold uppercase text-slate-400">Notes &amp; Terms</div><div id="preview-notes-text" class="text-xs text-slate-600 whitespace-pre-line"></div></div></div>
+        </div>
+        <div class="mt-8 pt-4 border-t flex justify-between text-[10px] text-slate-400"><span>Thank you for your business!</span><span>Generated with <b class="text-slate-600">GrindBill</b></span></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const KEYS={BIZ:'grindbill_biz_profile_v1',PRESETS:'grindbill_presets_v1',PAY:'grindbill_payment_info_v1',DOC:'grindbill_last_doc_num_v1',ACCENT:'grindbill_accent_color_v1',DRAFT:'grindbill_draft_v1',SKIP:'grindbill_skip_splash_v1'};
+const DEFAULT_PRESETS=[{id:'p1',desc:'Standard Service Call',rate:85},{id:'p2',desc:'Hourly Labor',rate:65},{id:'p3',desc:'Material / Supply Fee',rate:40}];
+const DEFAULT_NOTES={QUOTE:'This estimate is valid for 14 days. Final pricing may adjust if project scope changes.',INVOICE:'Payment due upon receipt. Thank you for supporting our local business!'};
+let state={mode:'QUOTE',accentColor:'#0f172a',logoBase64:'',items:[{id:'item-1',desc:'Standard Service Call',qty:1,rate:85}],presets:[...DEFAULT_PRESETS]};
+let currentStep=1, deferredPrompt=null;
+const STEPS=['Document','Your Business','Client','Services','Totals & Pay','Review'];
+function buildStepper(){document.getElementById('stepper').innerHTML=STEPS.map((s,i)=>`<button onclick="goStep(${i+1})" class="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold ${i+1===currentStep?'bg-teal-500 text-slate-950':'bg-slate-800 text-slate-300 border border-slate-700'}">${i+1}. ${s}</button>`).join('');document.getElementById('step-label').textContent=`Step ${currentStep} of 6 • ${STEPS[currentStep-1]}`;document.getElementById('progress-bar').style.width=(currentStep/6*100)+'%';document.querySelectorAll('.step').forEach(el=>el.classList.toggle('active',Number(el.dataset.step)===currentStep));}
+function goStep(n){currentStep=Math.max(1,Math.min(6,n));buildStepper();updateStateAndRender();window.scrollTo({top:0,behavior:'smooth'});}
+function toggleAllSettings(){document.getElementById('all-settings').classList.toggle('hidden');}
+function showSplash(){document.getElementById('splash').style.display='flex';}
+function enterApp(fromDraft){document.getElementById('splash').style.display='none';localStorage.setItem(KEYS.SKIP,document.getElementById('skip-splash').checked?'1':'0');goStep(1);}
+function fmtDateInput(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function fmtDisplay(s){if(!s)return '—';const [y,m,d]=s.split('-');return new Date(+y,+m-1,+d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+function initDates(){const t=new Date(),p=new Date();p.setDate(t.getDate()+14);document.getElementById('doc-date').value=fmtDateInput(t);document.getElementById('doc-due-date').value=fmtDateInput(p);}
+function loadPersisted(){try{const b=JSON.parse(localStorage.getItem(KEYS.BIZ));if(b){['biz-name','biz-contact','biz-phone','biz-email','biz-address'].forEach(id=>{});document.getElementById('biz-name').value=b.name||'';document.getElementById('biz-contact').value=b.contact||'';document.getElementById('biz-phone').value=b.phone||'';document.getElementById('biz-email').value=b.email||'';document.getElementById('biz-address').value=b.address||'';if(b.logoBase64){state.logoBase64=b.logoBase64;updateLogoUI();}}}catch(e){}try{const p=JSON.parse(localStorage.getItem(KEYS.PRESETS));if(Array.isArray(p)&&p.length)state.presets=p;}catch(e){}const pay=localStorage.getItem(KEYS.PAY);if(pay)document.getElementById('payment-info').value=pay;const dn=localStorage.getItem(KEYS.DOC);if(dn)document.getElementById('doc-number').value=dn;const ac=localStorage.getItem(KEYS.ACCENT);if(ac)state.accentColor=ac;document.getElementById('doc-notes').value=DEFAULT_NOTES[state.mode];
+  // draft
+  try{const dr=JSON.parse(localStorage.getItem(KEYS.DRAFT));if(dr){document.getElementById('btn-continue-draft').classList.remove('hidden');if(dr.client)Object.entries(dr.client).forEach(([k,v])=>{const el=document.getElementById(k);if(el)el.value=v;});if(dr.items)state.items=dr.items;if(dr.tax!=null)document.getElementById('tax-rate').value=dr.tax;if(dr.discount!=null)document.getElementById('discount-amount').value=dr.discount;if(dr.notes)document.getElementById('doc-notes').value=dr.notes;if(dr.mode)setDocMode(dr.mode);}}catch(e){}}
+function saveBusinessProfile(){const p={name:document.getElementById('biz-name').value,contact:document.getElementById('biz-contact').value,phone:document.getElementById('biz-phone').value,email:document.getElementById('biz-email').value,address:document.getElementById('biz-address').value,logoBase64:state.logoBase64};try{localStorage.setItem(KEYS.BIZ,JSON.stringify(p));}catch(e){showToast('Storage limit — try smaller logo','error');}updateStateAndRender();}
+function handleLogoUpload(e){const f=e.target.files[0];if(!f)return;if(f.size>1024*1024){showToast('Choose image under 1MB','error');return;}const r=new FileReader();r.onload=ev=>{state.logoBase64=ev.target.result;updateLogoUI();saveBusinessProfile();showToast('Logo uploaded & saved!');};r.readAsDataURL(f);}
+function removeLogo(){state.logoBase64='';document.getElementById('biz-logo-input').value='';updateLogoUI();saveBusinessProfile();}
+function updateLogoUI(){const s=document.getElementById('logo-status-text'),b=document.getElementById('btn-remove-logo'),p=document.getElementById('preview-logo');if(state.logoBase64){s.textContent='Logo Active (Click to Change)';b.classList.remove('hidden');p.src=state.logoBase64;p.classList.remove('hidden');}else{s.textContent='Upload Business Logo';b.classList.add('hidden');p.src='';p.classList.add('hidden');}}
+function savePaymentInfo(){localStorage.setItem(KEYS.PAY,document.getElementById('payment-info').value);updateStateAndRender();}
+function setDocMode(m){state.mode=m;document.getElementById('btn-mode-quote').className=m==='QUOTE'?'px-3.5 py-1.5 rounded-lg text-sm font-bold bg-yellow-400 text-slate-950':'px-3.5 py-1.5 rounded-lg text-sm font-bold text-slate-400';document.getElementById('btn-mode-invoice').className=m==='INVOICE'?'px-3.5 py-1.5 rounded-lg text-sm font-bold bg-teal-400 text-slate-950':'px-3.5 py-1.5 rounded-lg text-sm font-bold text-slate-400';document.getElementById('label-due-date').textContent=m==='QUOTE'?'Valid Until':'Due Date';const n=document.getElementById('doc-notes');if(n.value===DEFAULT_NOTES.QUOTE||n.value===DEFAULT_NOTES.INVOICE||!n.value.trim())n.value=DEFAULT_NOTES[m];updateStateAndRender();}
+function setAccentColor(h){state.accentColor=h;localStorage.setItem(KEYS.ACCENT,h);updateStateAndRender();}
+function incrementDocNumber(){const inp=document.getElementById('doc-number'),cur=inp.value.trim(),mm=cur.match(/^(.*?)(\d+)$/);inp.value=mm?mm[1]+String(Number(mm[2])+1).padStart(mm[2].length,'0'):'GB-1002';localStorage.setItem(KEYS.DOC,inp.value);updateStateAndRender();}
+function clearClientInfo(){['client-name','client-company','client-phone','client-email','client-address'].forEach(id=>document.getElementById(id).value='');updateStateAndRender();showToast('Client fields cleared.');}
+function startNewDocument(){incrementDocNumber();clearClientInfo();initDates();state.items=[{id:'item-'+Date.now(),desc:'',qty:1,rate:0}];document.getElementById('tax-rate').value=0;document.getElementById('discount-amount').value=0;document.getElementById('doc-notes').value=DEFAULT_NOTES[state.mode];renderLineItems();updateStateAndRender();showToast('Started fresh document');}
+function renderPresets(){const c=document.getElementById('presets-container');c.innerHTML='';state.presets.forEach(p=>{const chip=document.createElement('div');chip.className='inline-flex items-center bg-slate-900 border border-slate-700 rounded-full text-xs';chip.innerHTML=`<button class="pl-3 pr-2 py-1.5">+ ${escapeHtml(p.desc)} <span class="font-mono text-teal-400">$${Number(p.rate).toFixed(2)}</span></button><button class="pr-2 text-slate-500 hover:text-rose-400 font-bold">×</button>`;chip.children[0].onclick=()=>{if(state.items.length===1&&!state.items[0].desc.trim()&&Number(state.items[0].rate)===0){state.items[0].desc=p.desc;state.items[0].rate=Number(p.rate);}else state.items.push({id:'item-'+Date.now()+Math.random(),desc:p.desc,qty:1,rate:Number(p.rate)});renderLineItems();updateStateAndRender();showToast(`Added "${p.desc}"`);};chip.children[1].onclick=e=>{e.stopPropagation();state.presets=state.presets.filter(x=>x.id!==p.id);localStorage.setItem(KEYS.PRESETS,JSON.stringify(state.presets));renderPresets();};c.appendChild(chip);});}
+function togglePresetForm(){document.getElementById('new-preset-box').classList.toggle('hidden');}
+function saveNewPreset(){const d=document.getElementById('preset-new-desc').value.trim(),r=parseFloat(document.getElementById('preset-new-rate').value);if(!d){showToast('Enter a service name','error');return;}state.presets.push({id:'preset-'+Date.now(),desc:d,rate:isNaN(r)?0:r});localStorage.setItem(KEYS.PRESETS,JSON.stringify(state.presets));document.getElementById('preset-new-desc').value='';document.getElementById('preset-new-rate').value='';togglePresetForm();renderPresets();}
+function addLineItem(d='',q=1,r=0){state.items.push({id:'item-'+Date.now()+Math.random(),desc:d,qty:q,rate:r});renderLineItems();updateStateAndRender();}
+function removeLineItem(id){if(state.items.length===1)state.items[0]={id:state.items[0].id,desc:'',qty:1,rate:0};else state.items=state.items.filter(i=>i.id!==id);renderLineItems();updateStateAndRender();}
+function updateLineItemField(id,f,v){const it=state.items.find(i=>i.id===id);if(!it)return;if(f==='desc')it.desc=v;if(f==='qty')it.qty=parseFloat(v)||0;if(f==='rate')it.rate=parseFloat(v)||0;const el=document.getElementById(`row-total-${id}`);if(el)el.textContent=formatCurrency(it.qty*it.rate);updateStateAndRender();}
+function renderLineItems(){const c=document.getElementById('line-items-container');c.innerHTML='';state.items.forEach(it=>{const row=document.createElement('div');row.className='grid grid-cols-12 gap-2 items-center bg-slate-900 p-2 rounded-xl border border-slate-700';row.innerHTML=`<div class="col-span-12 sm:col-span-6"><input value="${escapeAttr(it.desc)}" placeholder="Service description..." oninput="updateLineItemField('${it.id}','desc',this.value)" class="w-full bg-slate-800 rounded-lg px-2 py-1.5 text-sm"/></div><div class="col-span-4 sm:col-span-2"><input type="number" value="${it.qty}" oninput="updateLineItemField('${it.id}','qty',this.value)" class="w-full bg-slate-800 rounded-lg px-2 py-1.5 text-right font-mono text-sm"/></div><div class="col-span-4 sm:col-span-2"><input type="number" value="${it.rate}" oninput="updateLineItemField('${it.id}','rate',this.value)" class="w-full bg-slate-800 rounded-lg px-2 py-1.5 text-right font-mono text-sm"/></div><div class="col-span-4 sm:col-span-2 flex justify-end gap-1"><span id="row-total-${it.id}" class="font-mono text-sm">${formatCurrency(it.qty*it.rate)}</span><button onclick="removeLineItem('${it.id}')" class="text-slate-500 hover:text-rose-400">✕</button></div>`;c.appendChild(row);});}
+function calculateTotals(){const sub=state.items.reduce((s,i)=>s+(Number(i.qty)||0)*(Number(i.rate)||0),0);const taxRate=parseFloat(document.getElementById('tax-rate').value)||0;const disc=parseFloat(document.getElementById('discount-amount').value)||0;const tax=sub*(taxRate/100);return{subtotal:sub,taxRate,taxAmount:tax,discount:disc,grandTotal:Math.max(0,sub+tax-disc)};}
+function updateStateAndRender(){
+  const docNum=document.getElementById('doc-number').value.trim()||'GB-1001';localStorage.setItem(KEYS.DOC,docNum);
+  const biz=document.getElementById('biz-name').value.trim()||'Your Business Name';document.getElementById('preview-biz-name').textContent=biz;document.getElementById('preview-biz-name').style.color=state.accentColor;
+  const bc=document.getElementById('biz-contact').value.trim();document.getElementById('preview-biz-contact').textContent=bc;document.getElementById('preview-biz-contact').style.display=bc?'block':'none';
+  document.getElementById('preview-biz-details').textContent=[document.getElementById('biz-phone').value.trim(),document.getElementById('biz-email').value.trim(),document.getElementById('biz-address').value.trim()].filter(Boolean).join(' • ');
+  const badge=document.getElementById('preview-doc-badge');
+  if(state.mode==='QUOTE'){badge.textContent='QUOTE / ESTIMATE';badge.className='inline-block px-3 py-1 rounded-md text-xs font-extrabold uppercase bg-amber-100 text-amber-900 border border-amber-300';document.getElementById('preview-total-label').textContent='Estimated Total';document.getElementById('preview-due-label').textContent='Valid Until:';}else{badge.textContent='INVOICE';badge.className='inline-block px-3 py-1 rounded-md text-xs font-extrabold uppercase bg-teal-100 text-teal-900 border border-teal-300';document.getElementById('preview-total-label').textContent='Balance Due';document.getElementById('preview-due-label').textContent='Due Date:';}
+  document.getElementById('preview-header-bar').style.borderColor=state.accentColor;document.getElementById('preview-total-bar').style.borderColor=state.accentColor;
+  document.getElementById('preview-doc-number').textContent='#'+docNum;document.getElementById('preview-doc-date').textContent=fmtDisplay(document.getElementById('doc-date').value);document.getElementById('preview-doc-due-date').textContent=fmtDisplay(document.getElementById('doc-due-date').value);
+  document.getElementById('preview-client-name').textContent=document.getElementById('client-name').value.trim()||'Valued Client';document.getElementById('preview-client-company').textContent=document.getElementById('client-company').value.trim();document.getElementById('preview-client-details').textContent=[document.getElementById('client-phone').value.trim(),document.getElementById('client-email').value.trim(),document.getElementById('client-address').value.trim()].filter(Boolean).join(' • ');
+  const tbody=document.getElementById('preview-items-body');tbody.innerHTML='';state.items.forEach(it=>{const tr=document.createElement('tr');tr.innerHTML=`<td class="py-2 pr-2">${escapeHtml(it.desc.trim()||'Service / Line Item')}</td><td class="py-2 text-right font-mono">${it.qty}</td><td class="py-2 text-right font-mono">${formatCurrency(it.rate)}</td><td class="py-2 text-right font-mono font-semibold">${formatCurrency(it.qty*it.rate)}</td>`;tbody.appendChild(tr);});
+  const t=calculateTotals();document.getElementById('calc-subtotal').textContent=formatCurrency(t.subtotal);document.getElementById('calc-grand-total').textContent=formatCurrency(t.grandTotal);document.getElementById('preview-subtotal').textContent=formatCurrency(t.subtotal);document.getElementById('preview-grand-total').textContent=formatCurrency(t.grandTotal);document.getElementById('preview-grand-total').style.color=state.accentColor;
+  document.getElementById('preview-tax-row').classList.toggle('hidden',!(t.taxRate>0));if(t.taxRate>0){document.getElementById('preview-tax-label').textContent=`Tax (${t.taxRate}%)`;document.getElementById('preview-tax-amount').textContent=formatCurrency(t.taxAmount);}
+  document.getElementById('preview-discount-row').classList.toggle('hidden',!(t.discount>0));if(t.discount>0)document.getElementById('preview-discount-amount').textContent='-'+formatCurrency(t.discount);
+  const pay=document.getElementById('payment-info').value.trim();document.getElementById('preview-payment-box').classList.toggle('hidden',!pay);if(pay)document.getElementById('preview-payment-text').textContent=pay;
+  const notes=document.getElementById('doc-notes').value.trim();document.getElementById('preview-notes-text').textContent=notes;
+  // checklist
+  const checks=[['Business filled',!!document.getElementById('biz-name').value.trim()],['Client filled',!!document.getElementById('client-name').value.trim()],['Items added',state.items.some(i=>i.desc.trim()||i.rate>0)],['Total > $0',t.grandTotal>0]];
+  document.getElementById('checklist').innerHTML=checks.map(([l,ok])=>`<div>${ok?'✅':'⚠️'} ${l}</div>`).join('');
+  // draft autosave
+  try{localStorage.setItem(KEYS.DRAFT,JSON.stringify({mode:state.mode,client:{'client-name':document.getElementById('client-name').value,'client-company':document.getElementById('client-company').value,'client-phone':document.getElementById('client-phone').value,'client-email':document.getElementById('client-email').value,'client-address':document.getElementById('client-address').value},items:state.items,tax:document.getElementById('tax-rate').value,discount:document.getElementById('discount-amount').value,notes:document.getElementById('doc-notes').value}));document.getElementById('saved-label').textContent='Last saved • '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}catch(e){}
+  buildStepper();
+}
+function copySmsSummary(){const biz=document.getElementById('biz-name').value.trim()||'Our Business',client=document.getElementById('client-name').value.trim(),doc=document.getElementById('doc-number').value.trim()||'GB-1001',type=state.mode==='QUOTE'?'Estimate':'Invoice',t=calculateTotals(),pay=document.getElementById('payment-info').value.trim();let lines=[`Hi${client?' '+client:''}! Here is your ${type} (#${doc}) from ${biz}:`, ''];state.items.forEach(i=>{if(i.desc.trim()||i.rate>0)lines.push(`• ${i.desc.trim()||'Service'} (x${i.qty}): ${formatCurrency(i.qty*i.rate)}`);});lines.push('');if(t.taxRate>0)lines.push(`Tax (${t.taxRate}%): ${formatCurrency(t.taxAmount)}`);if(t.discount>0)lines.push(`Discount: -${formatCurrency(t.discount)}`);lines.push(`Total: ${formatCurrency(t.grandTotal)}`);if(pay){lines.push('');lines.push(`How to Pay: ${pay}`);}const ta=document.createElement('textarea');ta.value=lines.join('\n');ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');showToast('SMS summary copied!');}catch(e){showToast('Unable to copy','error');}document.body.removeChild(ta);}
+function formatCurrency(n){return '$'+(Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function escapeAttr(s){return String(s).replace(/"/g,'&quot;');}
+function showToast(msg,type='success'){const c=document.getElementById('toast-container'),t=document.createElement('div');t.className='pointer-events-auto px-4 py-3 rounded-xl bg-slate-900 border text-xs font-semibold shadow-xl '+(type==='error'?'border-rose-500 text-rose-200':'border-teal-500 text-white');t.textContent=msg;c.appendChild(t);setTimeout(()=>t.remove(),2800);}
+// PWA
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;document.getElementById('btn-install').classList.remove('hidden');document.getElementById('btn-install-splash').classList.remove('hidden');});
+async function promptInstall(){if(!deferredPrompt){showToast('Use browser menu → Add to Home Screen / Install');return;}deferredPrompt.prompt();const r=await deferredPrompt.userChoice;if(r.outcome==='accepted')showToast('Installed!');deferredPrompt=null;}
+function updateOnline(){const on=navigator.onLine;document.getElementById('online-dot').textContent=on?'● Online':'○ Offline';document.getElementById('online-dot').className='text-xs px-2 py-1 rounded-full '+(on?'bg-emerald-950 text-emerald-300 border border-emerald-800':'bg-amber-950 text-amber-300 border border-amber-800');}
+window.addEventListener('online',updateOnline);window.addEventListener('offline',updateOnline);
+if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js').then(()=>showToast('Offline ready')).catch(()=>{});});}
+document.addEventListener('DOMContentLoaded',()=>{initDates();loadPersisted();renderPresets();renderLineItems();updateStateAndRender();updateOnline();const p=document.getElementById('pwa-status');if(window.matchMedia('(display-mode: standalone)').matches){p.textContent='Running as installed app ✓';}else{p.textContent='Installable — use Install App or Add to Home Screen';}if(localStorage.getItem(KEYS.SKIP)==='1'){document.getElementById('splash').style.display='none';document.getElementById('skip-splash').checked=true;}const q=new URLSearchParams(location.search);if(q.get('new')==='invoice')setDocMode('INVOICE');});
+</script>
+</body>
+</html>
